@@ -8,6 +8,7 @@ from utils import pp, visualize, to_json, show_all_variables
 import tensorflow as tf
 
 flags = tf.app.flags
+flags.DEFINE_string("device", "/cpu:0", "")
 flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
@@ -78,7 +79,8 @@ def main(_):
           crop=FLAGS.crop,
           checkpoint_dir=FLAGS.checkpoint_dir,
           sample_dir=FLAGS.sample_dir,
-          data_dir=FLAGS.data_dir)
+          data_dir=FLAGS.data_dir,
+          device=FLAGS.device)
 
     show_all_variables()
 

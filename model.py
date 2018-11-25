@@ -18,7 +18,8 @@ class DCGAN(object):
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
          y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-         input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, data_dir='./data'):
+               input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None, data_dir='./data',
+               device='/cpu:0'):
     """
 
     Args:
@@ -32,6 +33,9 @@ class DCGAN(object):
       dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
       c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
     """
+
+    self.device = device
+    
     self.sess = sess
     self.crop = crop
 
@@ -53,18 +57,19 @@ class DCGAN(object):
     self.dfc_dim = dfc_dim
 
     # batch normalization : deals with poor initialization helps gradient flow
-    self.d_bn1 = batch_norm(name='d_bn1')
-    self.d_bn2 = batch_norm(name='d_bn2')
+    with tf.device(self.device):
+      self.d_bn1 = batch_norm(name='d_bn1')
+      self.d_bn2 = batch_norm(name='d_bn2')
 
-    if not self.y_dim:
-      self.d_bn3 = batch_norm(name='d_bn3')
+      if not self.y_dim:
+        self.d_bn3 = batch_norm(name='d_bn3')
 
-    self.g_bn0 = batch_norm(name='g_bn0')
-    self.g_bn1 = batch_norm(name='g_bn1')
-    self.g_bn2 = batch_norm(name='g_bn2')
+      self.g_bn0 = batch_norm(name='g_bn0')
+      self.g_bn1 = batch_norm(name='g_bn1')
+      self.g_bn2 = batch_norm(name='g_bn2')
 
-    if not self.y_dim:
-      self.g_bn3 = batch_norm(name='g_bn3')
+      if not self.y_dim:
+        self.g_bn3 = batch_norm(name='g_bn3')
 
     self.dataset_name = dataset_name
     self.input_fname_pattern = input_fname_pattern
@@ -91,7 +96,8 @@ class DCGAN(object):
     
     self.grayscale = (self.c_dim == 1)
 
-    self.build_model()
+    with tf.device(self.device):
+      self.build_model()
 
   def build_model(self):
     if self.y_dim:
@@ -262,24 +268,25 @@ class DCGAN(object):
               self.y: batch_labels
           })
         else:
-          # Update D network
-          _, summary_str = self.sess.run([d_optim, self.d_sum],
-            feed_dict={ self.inputs: batch_images, self.z: batch_z })
-          self.writer.add_summary(summary_str, counter)
+          with tf.device(self.device):
+            # Update D network
+            _, summary_str = self.sess.run([d_optim, self.d_sum],
+              feed_dict={ self.inputs: batch_images, self.z: batch_z })
+            self.writer.add_summary(summary_str, counter)
 
-          # Update G network
-          _, summary_str = self.sess.run([g_optim, self.g_sum],
-            feed_dict={ self.z: batch_z })
-          self.writer.add_summary(summary_str, counter)
+            # Update G network
+            _, summary_str = self.sess.run([g_optim, self.g_sum],
+              feed_dict={ self.z: batch_z })
+            self.writer.add_summary(summary_str, counter)
 
-          # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
-          _, summary_str = self.sess.run([g_optim, self.g_sum],
-            feed_dict={ self.z: batch_z })
-          self.writer.add_summary(summary_str, counter)
-          
-          errD_fake = self.d_loss_fake.eval({ self.z: batch_z })
-          errD_real = self.d_loss_real.eval({ self.inputs: batch_images })
-          errG = self.g_loss.eval({self.z: batch_z})
+            # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+            _, summary_str = self.sess.run([g_optim, self.g_sum],
+              feed_dict={ self.z: batch_z })
+            self.writer.add_summary(summary_str, counter)
+
+            errD_fake = self.d_loss_fake.eval({ self.z: batch_z })
+            errD_real = self.d_loss_real.eval({ self.inputs: batch_images })
+            errG = self.g_loss.eval({self.z: batch_z})
 
         counter += 1
         print("Epoch: [%2d/%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
